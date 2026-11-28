@@ -98,19 +98,24 @@ class EpisodeResult:
     high_interest_left: float
 
 
-def run_episode(env: HouseholdEnv, policy: Policy, *, seed: int) -> EpisodeResult:
-    """Run one episode with a baseline policy and summarise it."""
-    env.reset(seed=seed)
-    total = 0.0
-    done = False
-    while not done:
-        _, reward, done, _, info = env.step(policy(env))
-        total += reward
+def summarize_episode(env: HouseholdEnv, total_reward: float) -> EpisodeResult:
+    """Summarise a finished episode from the environment's final state."""
     s = env.state
     resolved = [i for i, d in enumerate(s.goals_done) if d]
     funded = s.goal_paid / sum(env.params.goals[i].target for i in resolved) if resolved else 1.0
     return EpisodeResult(
-        total_reward=total, final_net_worth=env.adjusted_wealth(), interest_paid=s.interest_paid,
+        total_reward=total_reward, final_net_worth=env.adjusted_wealth(), interest_paid=s.interest_paid,
         goals_funded_fraction=min(1.0, funded), min_runway_months=s.min_runway,
         deficit_months=s.deficit_months, violations=s.violations,
         high_interest_left=env.high_interest_debt())
+
+
+def run_episode(env: HouseholdEnv, policy: Policy, *, seed: int) -> EpisodeResult:
+    """Run one episode with a policy and summarise it."""
+    env.reset(seed=seed)
+    total = 0.0
+    done = False
+    while not done:
+        _, reward, done, _, _ = env.step(policy(env))
+        total += reward
+    return summarize_episode(env, total)
